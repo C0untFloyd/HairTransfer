@@ -7,6 +7,7 @@ test*.txt
 *.pkl
 *.pt
 *.zip
+*.bat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -125,6 +126,8 @@ venv.bak/
 
 # Rope project settings
 .ropeproject
+
+.vscode
 
 # mkdocs documentation
 /site
