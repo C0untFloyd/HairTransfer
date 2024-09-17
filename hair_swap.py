@@ -90,8 +90,8 @@ class HairFast:
 
             images.append(img)
 
-        if align:
-            images = align_face(images)
+        #if align:
+        #    images = align_face(images)
         images = equal_replacer(images)
 
         final_image = self.__swap_from_tensors(*images, seed=seed, benchmark=benchmark, exp_name=exp_name, **kwargs)

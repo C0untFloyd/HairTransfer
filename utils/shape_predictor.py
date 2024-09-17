@@ -3,6 +3,7 @@ from pathlib import Path
 
 import PIL
 import dlib
+import insightface
 import numpy as np
 import scipy
 import scipy.ndimage
@@ -12,21 +13,22 @@ from torchvision import transforms as T
 
 from utils.drive import open_url
 
-"""
-brief: face alignment with FFHQ method (https://github.com/NVlabs/ffhq-dataset)
-author: lzhbrian (https://lzhbrian.me)
-date: 2020.1.5
-note: code is heavily borrowed from
-    https://github.com/NVlabs/ffhq-dataset
-    http://dlib.net/face_landmark_detection.py.html
+FACE_ANALYSER = None
 
-requirements:
-    apt install cmake
-    conda install Pillow numpy scipy
-    pip install dlib
-    # download face landmark model from:
-    # http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
-"""
+
+def get_face_analyser():
+    global FACE_ANALYSER
+
+    if FACE_ANALYSER is None:
+        allowed_modules = ["landmark_3d_68", "detection", "recognition"]
+        FACE_ANALYSER = insightface.app.FaceAnalysis(
+            name="buffalo_l",
+            root="pretrained_models/buffalo_l",
+            providers=['CUDAExecutionProvider'],
+            allowed_modules=allowed_modules,
+        )
+        FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
+    return FACE_ANALYSER
 
 
 def get_landmark(filepath, predictor):
@@ -44,6 +46,33 @@ def get_landmark(filepath, predictor):
     lms = [np.array([[tt.x, tt.y] for tt in shape.parts()]) for shape in shapes]
 
     return lms
+
+
+def get_landmark_from_tensors_ins(tensors: list[torch.Tensor | Image.Image | np.ndarray]):
+    transform = T.ToPILImage()
+    images = []
+    lms = []
+
+    for k, tensor in enumerate(tensors):
+        if isinstance(tensor, torch.Tensor):
+            img_pil = transform(tensor)
+        else:
+            img_pil = tensor
+        img = np.array(img_pil)
+        images.append(img_pil)
+        
+        dets = get_face_analyser().get(img)
+        if len(dets) == 0:
+            raise ValueError(f"No faces detected in the image {k}.")
+        elif len(dets) == 1:
+            print(f"Number of faces detected: {len(dets)}")
+        else:
+            print(f"Number of faces detected: {len(dets)}, get largest face")
+        face = min(dets, key=lambda x: x.bbox[0])
+        lm = np.array([[tt[0], tt[1]] for tt in face.landmark_3d_68])
+        lms.append(lm)
+
+    return images, lms
 
 
 def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndarray], predictor):
@@ -77,28 +106,18 @@ def get_landmark_from_tensors(tensors: list[torch.Tensor | Image.Image | np.ndar
     return images, lms
 
 
-def align_face(data, predictor=None, is_filepath=False, return_tensors=True):
+def align_face(data, is_filepath=False, return_tensors=True):
     """
     :param data: filepath or list torch Tensors
     :return: list of PIL Images
     """
-    if predictor is None:
-        predictor_path = 'pretrained_models/ShapeAdaptor/shape_predictor_68_face_landmarks.dat'
-
-        if not os.path.isfile(predictor_path):
-            print("Downloading Shape Predictor")
-            data_io = open_url("https://drive.google.com/uc?id=1huhv8PYpNNKbGCLOaYUjOgR1pY5pmbJx")
-            with open(predictor_path, 'wb') as f:
-                f.write(data_io.getbuffer())
-
-        predictor = dlib.shape_predictor(predictor_path)
 
     if is_filepath:
-        lms = get_landmark(data, predictor)
+        lms = get_landmark_from_tensors_ins(data)
     else:
         if not isinstance(data, list):
             data = [data]
-        images, lms = get_landmark_from_tensors(data, predictor)
+        images, lms = get_landmark_from_tensors_ins(data)
 
     imgs = []
     for num_img, lm in enumerate(lms):

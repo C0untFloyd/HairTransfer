@@ -1,12 +1,13 @@
 import os
 
 import torch
+from . import fused
 from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Function
 from torch.utils.cpp_extension import load
 
-module_path = os.path.dirname(__file__)
+""" module_path = os.path.dirname(__file__)
 fused = load(
     "fused",
     sources=[
@@ -14,7 +15,7 @@ fused = load(
         os.path.join(module_path, "fused_bias_act_kernel.cu"),
     ], verbose=True, is_python_module=True,
 )
-
+ """
 
 class FusedLeakyReLUFunctionBackward(Function):
     @staticmethod
