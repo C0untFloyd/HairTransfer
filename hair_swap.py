@@ -16,8 +16,8 @@ from models.Embedding import Embedding
 from models.Net import Net
 from utils.image_utils import equal_replacer
 from utils.seed import seed_setter
-from utils.shape_predictor import align_face
 from utils.time import bench_session
+
 
 TImage = tp.TypeVar('TImage', torch.Tensor, Image.Image, np.ndarray)
 TPath = tp.TypeVar('TPath', Path, str)
@@ -98,6 +98,7 @@ class HairFast:
 
         if align:
             return final_image, *images
+        
         return final_image
 
     @wraps(swap)
